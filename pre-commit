@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -e               # Exit with status 1 if any command below fails
+
+# Exit if in a branch we're not interested in being thorough about.
+echo $(git rev-parse --symbolic-full-name HEAD) | \
+    egrep -q '^refs/heads/t/' && exit 0
+
+# Locations to keep temporary source and build trees. The reason for
+# having a source tree mirror and a temporary build tree are so that
+# subsequent pre-commit builds only rebuild what has changed.
+# Otherwise, as Git doesn't restore timestamps during checkout, each
+# pre-commit would rebuild the project.
+BUILD=/tmp/pre-commit-$(basename $PWD)
+MIRROR=${BUILD}-mirror
+
+# Checkout a copy of the current index in $MIRROR.
+git checkout-index --prefix="$MIRROR/" -af
+
+# Remove files from $MIRROR that are no longer present in the index.
+# This is done because checkout-index, applied to the same directory
+# as the last run, will not delete files which have been removed.
+git diff-index --cached --name-only --diff-filter=D -z HEAD | \
+    (cd "$MIRROR" && xargs -0 rm -f --)
+
+# Copy *changed files* from $MIRROR to $BUILD, without timestamps.
+rsync -rlpgoDOc --delete "$MIRROR/" "$BUILD/"
+
+# Everything else happens in the pre-commit build tree.
+cd $BUILD
+
+# Make sure there is a current Makefile.  Regeneration of Makefiles
+# happens automatically, but if autotools have changed, we want to
+# regenerate everything manually.
+if [ ! -f Makefile \
+     -o Makefile.in  -nt Makefile \
+     -o Makefile.am  -nt Makefile.in \
+     -o configure    -nt Makefile \
+     -o configure.ac -nt configure ]
+then
+    autoreconf && ./configure
+fi
+
+# Finally, (re)build this proposed source tree and see if it passes
+# muster.
+nice -n 20 make check
+
+exit 0

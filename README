@@ -1,0 +1,3 @@
+This project contains a Git pre-commit script, meant to be installed in
+.git/hooks/pre-commit, which efficiently performs a test build against the
+current index, rather than the current working tree.
