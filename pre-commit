@@ -4,7 +4,7 @@ set -e               # Exit with status 1 if any command below fails
 
 # Exit if in a branch we're not interested in being thorough about.
 echo $(git rev-parse --symbolic-full-name HEAD) | \
-    egrep -q '^refs/heads/t/' && exit 0
+    egrep -q '^refs/heads/(feature|t)/' && exit 0
 
 # Locations to keep temporary source and build trees. The reason for
 # having a source tree mirror and a temporary build tree are so that
